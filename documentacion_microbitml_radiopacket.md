@@ -1,5 +1,5 @@
 # Documentación Técnica - MicrobitML Radio Module
-**Archivo:** microbitml.py  
+**Autor del proyecto:** Leandro Batlle  
 **Propósito:** Protocolo de comunicación radio para sistema distribuido
 
 ## Descripción General

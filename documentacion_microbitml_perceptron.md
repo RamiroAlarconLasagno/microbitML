@@ -1,7 +1,5 @@
 # Documentación Técnica - MicrobitML Perceptron
-**Autor:** Ramiro Alarcon Lasagno  
-**Versión:** pct  
-**Archivo:** main.py
+**Autor del proyecto:** Leandro Batlle
 
 ## Arquitectura General
 
