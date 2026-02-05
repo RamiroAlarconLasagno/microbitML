@@ -2,7 +2,7 @@
 
 from microbit import *
 import radio
-from microbitcore import RadioMessage
+from microbitml import RadioMessage
 
 ACTIVITY = "cqz"
 

@@ -1,6 +1,11 @@
-# microbitcore.py
+#
+# microbit-module: foo@1.2.3
+#
+# ---
+# microbitml.py
 # Libreria de comunicacion radio para micro:bit
 # Formatos: CSV (activity,group,role,payload) y Command (CMD:args)
+from microbit import display, sleep
 
 class RadioMessage:
     def __init__(self, format="csv", activity=None, device_id=None):
@@ -146,13 +151,14 @@ class RadioMessage:
 
 
 class ConfigManager:
-    def __init__(self, config_file='config.cfg', roles=None, grupos_max=9, extra_fields=None):
+    def __init__(self, config_file='config.cfg', roles=None, grupos_max=9, grupos_min=1, extra_fields=None):
         self.config_file = config_file
         self.roles = roles or ['A', 'B', 'Z']
         self.grupos_max = grupos_max
+        self.grupos_min = grupos_min  # NUEVO
         self.config = {
             'role': self.roles[0],
-            'grupo': 0
+            'grupo': self.grupos_min
         }
         if extra_fields:
             self.config.update(extra_fields)
@@ -205,5 +211,8 @@ class ConfigManager:
         return self.config['role']
     
     def cycle_grupo(self):
-        self.config['grupo'] = (self.config['grupo'] + 1) % (self.grupos_max + 1)
-        return self.config['grupo']
+        g = self.config.get('grupo', self.grupos_min)
+        rango = self.grupos_max - self.grupos_min + 1
+        g = ((g - self.grupos_min + 1) % rango) + self.grupos_min
+        self.config['grupo'] = g
+        return g

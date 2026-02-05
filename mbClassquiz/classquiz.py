@@ -3,7 +3,7 @@
 from microbit import *
 import radio
 import machine
-from microbitcore import RadioMessage, ConfigManager
+from microbitml import RadioMessage, ConfigManager
 from random import randint
 
 ACTIVITY = "cqz"
@@ -24,15 +24,10 @@ class ClassQuiz:
         self.config = ConfigManager(
             config_file='config.cfg',
             roles=['A', 'B', 'C', 'D', 'E', 'Z'],
-            grupos_max=9
+            grupos_max=9,
+            grupos_min=1  # ← NUEVO parámetro
         )
         self.config.load()
-        
-        # Corregir grupo=0 invalido
-        if self.config.get('grupo') == 0:
-            self.config.set('grupo', 1)
-            self.config.save()
-            self.log('CFG:Corregido_grupo=0_a_grupo=1')
         
         # Estado votacion NUEVO
         self.tipo_pregunta = None  # "unica" o "multiple"
@@ -68,18 +63,7 @@ class ClassQuiz:
         except:
             pass
     
-    def cycle_grupo_fixed(self):
-        g = self.config.get('grupo')
-        if g is None or not isinstance(g, int):
-            g = 1
-        else:
-            g = (g % 9) + 1
-        self.config.set('grupo', g)
-        return g
-    
     def mostrar_config(self):
-        display.show(ACTIVITY)
-        sleep(500)
         display.show(str(self.config.get('role')))
         sleep(500)
         display.show(str(self.config.get('grupo')))
@@ -229,7 +213,7 @@ class ClassQuiz:
                 
                 if button_b.was_pressed():
                     self.log('BTN:B (cfg)')
-                    self.cycle_grupo_fixed()
+                    self.config.cycle_grupo()
                     self.config.save()
                     display.clear()
                     sleep(100)
@@ -247,6 +231,8 @@ class ClassQuiz:
     def manejar_logo(self):
         if pin_logo.is_touched():
             self.log('BTN:LOGO')
+            display.show(ACTIVITY)
+            sleep(500)
             self.mostrar_config()
     
     def manejar_mensajes_radio(self):

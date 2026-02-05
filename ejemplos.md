@@ -1,8 +1,8 @@
-# Guía del Desarrollador - microbitcore.py
+# Guía del Desarrollador - microbitml.py
 
 ## Introducción
 
-microbitcore.py es una librería para simplificar la comunicación radio entre micro:bits. Proporciona dos clases principales:
+microbitml.py es una librería para simplificar la comunicación radio entre micro:bits. Proporciona dos clases principales:
 
 - **RadioMessage**: Manejo de mensajes por radio
 - **ConfigManager**: Persistencia de configuración
@@ -18,7 +18,7 @@ microbitcore.py es una librería para simplificar la comunicación radio entre m
 ```python
 from microbit import *
 import radio
-from microbitcore import RadioMessage
+from microbitml import RadioMessage
 
 # Inicializar radio
 radio.config(channel=7, power=6, length=64, queue=10)
@@ -87,7 +87,7 @@ if resultado:
 ```python
 from microbit import *
 import radio
-from microbitcore import RadioMessage
+from microbitml import RadioMessage
 
 radio.config(channel=7)
 radio.on()
@@ -319,7 +319,7 @@ tipo, num = msg.extract_qparams(mensaje)
 from microbit import *
 import radio
 import machine
-from microbitcore import RadioMessage
+from microbitml import RadioMessage
 
 device_id = ''.join(['{:02x}'.format(b) for b in machine.unique_id()])
 
@@ -349,7 +349,7 @@ while True:
 from microbit import *
 import radio
 import machine
-from microbitcore import RadioMessage
+from microbitml import RadioMessage
 
 device_id = ''.join(['{:02x}'.format(b) for b in machine.unique_id()])
 
@@ -380,7 +380,7 @@ while True:
 **Cuándo usar**: Al inicio del programa para crear configuración persistente que sobrevive reinicios del micro:bit.
 
 ```python
-from microbitcore import ConfigManager
+from microbitml import ConfigManager
 
 # Configuración simple
 config = ConfigManager(
@@ -452,7 +452,7 @@ config.reset()
 
 ```python
 from microbit import *
-from microbitcore import ConfigManager
+from microbitml import ConfigManager
 
 # Crear config con campos personalizados
 config = ConfigManager(
@@ -511,7 +511,7 @@ while True:
 ```python
 from microbit import *
 import radio
-from microbitcore import RadioMessage
+from microbitml import RadioMessage
 
 radio.config(channel=7)
 radio.on()
@@ -546,7 +546,7 @@ while True:
 from microbit import *
 import radio
 import machine
-from microbitcore import RadioMessage, ConfigManager
+from microbitml import RadioMessage, ConfigManager
 
 device_id = ''.join(['{:02x}'.format(b) for b in machine.unique_id()])
 
@@ -601,7 +601,7 @@ while True:
 ### Extender funcionalidad
 
 ```python
-from microbitcore import RadioMessage
+from microbitml import RadioMessage
 
 msg = RadioMessage(format="command", device_id="abc123")
 

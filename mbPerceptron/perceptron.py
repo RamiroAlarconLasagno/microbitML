@@ -3,7 +3,7 @@ from microbit import *
 import radio
 import music
 import machine
-from microbitcore import RadioMessage, ConfigManager
+from microbitml import RadioMessage, ConfigManager
 
 ACTIVITY = "pct"
 SUMA_MAX = 22
