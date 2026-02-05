@@ -1,8 +1,6 @@
 # perceptron.py
 from microbit import *
-import radio
 import music
-import machine
 from microbitml import RadioMessage, ConfigManager
 
 ACTIVITY = "pct"
@@ -10,36 +8,21 @@ SUMA_MAX = 22
 
 class PerceptronApp:
     def __init__(self):
-        self.device_id = ''.join(['{:02x}'.format(b) for b in machine.unique_id()])
         self.config = ConfigManager(roles=['Z','A','B'], grupos_max=9, grupos_min=0, extra_fields={'valor':0})
         self.config.load()
 
-        if self.config.get('role') is None:
-            self.config.set('role', 'A')
-        if self.config.get('grupo') is None:
-            self.config.set('grupo', 0)
         if self.config.get('valor') is None:
             self.config.set('valor', 0)
 
-        self.msg = RadioMessage(format="csv", activity=ACTIVITY, device_id=self.device_id)
-        self.msg.set_context(group=self.config.get('grupo'), role=self.config.get('role'))
+        g = self.config.get('grupo')
+        self.msg = RadioMessage(format="csv", activity=ACTIVITY, channel=g)
+        self.msg.configure(group=g, role=self.config.get('role'))
 
         self.suma_total = 0
         self.valor_a = 0
         self.valor_b = 0
 
-        radio.on()
-        g = self.config.get('grupo')
-        radio.config(channel=g if g else 0, power=6, length=64, queue=10)
-
-        r = self.config.get('role')
-        if r:
-            display.show(str(r))
-            sleep(500)
-        if g is not None:
-            display.show(str(g))
-            sleep(500)
-        display.clear()
+        self.mostrar_config()
 
     def mostrar_leds(self, n):
         if n == 0:
@@ -63,8 +46,7 @@ class PerceptronApp:
         self.config.save()
         vp = v * peso
         self.mostrar_leds(vp)
-        payload = str(vp)
-        self.msg.send(radio.send, payload)
+        self.msg.send(radio.send, str(vp))
         print("TX:{}:v={},peso={},vp={}".format(self.config.get('role'), v, peso, vp))
 
     def rol_a(self):
@@ -107,12 +89,9 @@ class PerceptronApp:
                     print("ERR:Z:{}".format(e))
 
     def cambiar_config(self):
-        if self.config.cfg_loop(pin1, button_a, button_b, self.mostrar_config):
-            self.msg.set_context(group=self.config.get('grupo'), 
-                                role=self.config.get('role'))
+        if self.config.config_rg(pin1, button_a, button_b, self.mostrar_config):
             ng = self.config.get('grupo')
-            if ng is not None:
-                radio.config(channel=ng, power=6, length=64, queue=10)
+            self.msg.configure(group=ng, role=self.config.get('role'), channel=ng)
 
     def mostrar_config(self):
         r = self.config.get('role')

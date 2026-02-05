@@ -1,5 +1,5 @@
 #
-# microbit-module: foo@1.2.3
+# microbit-module: microbitml@1.0.0
 #
 # ---
 # microbitml.py
@@ -7,18 +7,29 @@
 # Formatos: CSV (activity,group,role,payload) y Command (CMD:args)
 
 from microbit import display, sleep
+import radio
+import machine
 
 class RadioMessage:
-    def __init__(self, format="csv", activity=None, device_id=None):
+    def __init__(self, format="csv", activity='mbtml', channel=0):
         self.format = format
         self.activity = activity
-        self.device_id = device_id
+        self.device_id = ''.join(['{:02x}'.format(b) for b in machine.unique_id()])
         self.group = None
         self.role = None
+        self.channel = channel
+        
+        radio.on()
+        radio.config(channel=channel, power=6, length=64, queue=10)
     
-    def set_context(self, group, role):
+    def configure(self, group, role, channel=None):
+        """Configura grupo, rol y canal"""
         self.group = str(group)
         self.role = str(role)
+        # Si se especifica un canal, reconfigurarlo
+        if channel is not None and channel != self.channel:
+            self.channel = channel
+            radio.config(channel=channel, power=6, length=64, queue=10)
     
     def encode(self, payload):
         if self.format == "csv":
@@ -151,7 +162,7 @@ class RadioMessage:
 
 
 class ConfigManager:
-    def __init__(self, config_file='config.cfg', roles=None, grupos_max=9, grupos_min=1, extra_fields=None):
+    def __init__(self, config_file='config.cfg', roles=None, grupos_max=9, grupos_min=0, extra_fields=None):
         self.config_file = config_file
         self.roles = roles or ['A', 'B', 'Z']
         self.grupos_max = grupos_max
@@ -165,34 +176,32 @@ class ConfigManager:
     
     def load(self):
         try:
-            with open(self.config_file, 'r') as f:
-                lineas = f.read().strip().split('\n')
-                for linea in lineas:
-                    if '=' in linea:
-                        key, val = linea.split('=', 1)
-                        key = key.strip()
-                        val = val.strip()
-                        if key in self.config:
-                            if key == 'grupo':
-                                self.config[key] = int(val)
-                            elif val == 'None':
-                                self.config[key] = None
-                            else:
-                                try:
-                                    self.config[key] = int(val)
-                                except:
-                                    self.config[key] = val
+            f = open(self.config_file)
+            for s in f.read().splitlines():
+                if '=' in s:
+                    k, v = s.split('=', 1)
+                    k = k.strip(); v = v.strip()
+                    if k in self.config:
+                        if k == 'grupo':
+                            self.config[k] = int(v)
+                        elif v == 'None':
+                            self.config[k] = None
+                        else:
+                            try:
+                                self.config[k] = int(v)
+                            except:
+                                self.config[k] = v
+            f.close()
             return True
         except:
             return False
-    
+
     def save(self):
         try:
-            lineas = []
-            for key, val in self.config.items():
-                lineas.append("{}={}".format(key, val))
-            with open(self.config_file, 'w') as f:
-                f.write('\n'.join(lineas))
+            f = open(self.config_file, 'w')
+            for k in self.config:
+                f.write("{}={}\n".format(k, self.config[k]))
+            f.close()
             return True
         except:
             return False
@@ -217,14 +226,11 @@ class ConfigManager:
         self.config['grupo'] = g
         return g
     
-    def cfg_loop(self, p1, ba, bb, cb=None):
-        """Modo config: pin1+A/B cicla role/grupo. Retorna True si hubo cambios."""
+    def config_rg(self, p1, ba, bb, cb=None):
         if not p1.is_touched():
             return False
-        
         sleep(200)
         changed = False
-        
         while p1.is_touched():
             if ba.was_pressed():
                 self.cycle_role()
@@ -242,10 +248,8 @@ class ConfigManager:
                 if cb:
                     cb()
                 while bb.is_pressed():
-                    sleep(50)
-            
+                    sleep(50)  
             sleep(50)
-        
         display.clear()
         sleep(200)
         return changed
