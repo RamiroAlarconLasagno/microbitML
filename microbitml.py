@@ -103,6 +103,25 @@ class RadioMessage:
             return (True, m['t'], m['d'])
         return (False, None, None)
     
+    def recibe_packed(self, msg):
+        t, args = self.msg.parse_payload(msg)
+        if t != 'ANSWER':
+            return (None, None, None, [])
+        
+        if len(args) >= 4:
+            dev, grp, rl, opciones_raw = args[0], self._to_int_if_num(args[1]), args[2], args[3]
+        elif len(args) == 3:
+            dev = None
+            grp, rl, opciones_raw = self._to_int_if_num(args[0]), args[1], args[2]
+        elif len(args) == 2:
+            grp = rl = None
+            dev, opciones_raw = args[0], args[1]
+        else:
+            return (None, None, None, [])
+        
+        opciones = opciones_raw.split(',') if opciones_raw and ',' in opciones_raw else ([opciones_raw] if opciones_raw else [])
+        return (dev, grp, rl, opciones)
+    
     def parse_payload(self, payload):
         if not payload:
             return (None, [])
@@ -121,46 +140,39 @@ class RadioMessage:
         tipo, args = self.parse_payload(message)
         return args[0] if args else None
     
-    def extract_answer(self, message):
-        tipo, args = self.parse_payload(message)
-        if len(args) >= 2:
-            device = args[0]
-            opciones = args[1].split(',') if ',' in args[1] else [args[1]]
-            return (device, opciones)
-        return (None, [])
-    
     def extract_qparams(self, message):
         tipo, args = self.parse_payload(message)
         if len(args) >= 2:
             return (args[0], int(args[1]))
         return (None, None)
-    
-    def cmd_report(self):
-        return "REPORT"
-    
-    def cmd_id(self):
-        return "ID:{}".format(self.device_id) if self.device_id else "ID"
-    
-    def cmd_ack(self, target_id):
-        return "ACK:{}".format(target_id)
-    
-    def cmd_ping(self, target_id):
-        return "PING:{}".format(target_id)
-    
-    def cmd_pong(self):
-        return "PONG:{}".format(self.device_id) if self.device_id else "PONG"
-    
-    def cmd_answer(self, *opciones):
-        opciones_str = ','.join(str(o) for o in opciones)
-        return "ANSWER:{}:{}".format(self.device_id, opciones_str) if self.device_id else "ANSWER:{}".format(opciones_str)
-    
-    def cmd_qparams(self, tipo_pregunta, num_opciones):
-        return "QPARAMS:{}:{}".format(tipo_pregunta, num_opciones)
-    
+      
     def command(self, cmd, *args):
         if args:
             return "{}:{}".format(cmd, ':'.join(str(a) for a in args))
-        return cmd
+        return cmd  
+    
+    def cmd(self, name, *args, device_id=False, gr=False, packed=False):
+        params = []
+        
+        if device_id and self.device_id:
+            params.append(self.device_id)
+        if gr:
+            if self.group:
+                params.append(self.group)
+            if self.role:
+                params.append(self.role)
+        
+        if packed:
+            # Si args[0] es lista/tupla, usar directamente
+            if len(args) == 1 and isinstance(args[0], (list, tuple)):
+                args = (','.join(str(a) for a in args[0]),)
+            else:
+                args = (','.join(str(a) for a in args),)
+        
+        params.extend(args)
+        return self.command(name, *params)
+    
+
 
 
 class ConfigManager:
