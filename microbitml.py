@@ -10,6 +10,25 @@ from microbit import display, sleep
 import radio
 import machine
 
+
+class RadioMsg:
+    def __init__(self):
+        self.valid = False
+        self.name = None
+        self.devID = None
+        self.grp = None
+        self.rol = None
+        self.valores = []
+
+    def _reset(self):
+        self.valid = False
+        self.name = None
+        self.devID = None
+        self.grp = None
+        self.rol = None
+        self.valores = []
+
+
 class RadioMessage:
     def __init__(self, activity='mbtml', channel=0):
         self.activity = activity
@@ -17,10 +36,11 @@ class RadioMessage:
         self.group = None
         self.role = None
         self.channel = channel
-        
+        self._resultado = RadioMsg()
+
         radio.on()
         radio.config(channel=channel, power=6, length=64, queue=10)
-    
+
     def configure(self, group, role, channel=None):
         """Configura grupo, rol y canal"""
         self.group = str(group)
@@ -28,98 +48,101 @@ class RadioMessage:
         if channel is not None and channel != self.channel:
             self.channel = channel
             radio.config(channel=channel, power=6, length=64, queue=10)
-    
+
     def send(self, payload):
         """Envia payload por radio"""
         radio.send(str(payload))
-    
+
     def _read_radio(self):
         """Recibe mensaje raw de radio y retorna dict parseado"""
         raw = radio._read_radio()
         if not raw:
             return None
-        
         msg_str = raw.decode('utf-8') if isinstance(raw, bytes) else str(raw)
-        
         # Parsear comando
         tipo = msg_str.split(':')[0] if ':' in msg_str else msg_str
         return {'t': tipo, 'd': msg_str}
-    
-    def receive(self, filter=None, unpack=False):
+
+    def receive(self, filter=None):
         """
+        Retorna siempre el mismo objeto RadioMsg reutilizable.
         filter: None (todo) | str | list de tipos comando
-        unpack: descompone payload packed
-        
-        Retorna:
-          unpack=False: (valid, tipo, payload)
-          unpack=True:  (valid, tipo, device_id, grupo, role, [valores])
+
+        Atributos:
+          .valid   - bool
+          .name    - tipo de comando
+          .devID   - device_id del emisor (si viene en el mensaje)
+          .grp     - grupo (si viene en el mensaje)
+          .rol     - rol (si viene en el mensaje)
+          .valores - lista de valores payload
         """
+        r = self._resultado
+        r._reset()
+
         m = self._read_radio()
-        
         if not m:
-            return (False, None, None) if not unpack else (False, None, None, None, None, [])
-        
-        # Filtrar por tipo
+            return r
+
         expected_types = [filter] if isinstance(filter, str) else filter
-        
         if expected_types and m['t'] not in expected_types:
-            return (False, None, None) if not unpack else (False, None, None, None, None, [])
-        
-        if not unpack:
-            return (True, m['t'], m['d'])
-        
-        # Unpack
+            return r
+
         tipo, args = self.parse_payload(m['d'])
-        dev = grp = rol = None
-        valores = []
-        
+        r.name = tipo
+
         if len(args) >= 4:
-            dev, grp, rol, valores_raw = args[0], self._to_int(args[1]), args[2], args[3]
+            r.devID = args[0]
+            r.grp = self._to_int(args[1])
+            r.rol = args[2]
+            valores_raw = args[3]
         elif len(args) >= 3:
-            grp, rol, valores_raw = self._to_int(args[0]), args[1], args[2]
+            r.grp = self._to_int(args[0])
+            r.rol = args[1]
+            valores_raw = args[2]
         elif len(args) >= 2:
-            dev, valores_raw = args[0], args[1]
+            r.devID = args[0]
+            valores_raw = args[1]
         elif len(args) == 1:
             valores_raw = args[0]
         else:
-            return (True, tipo, dev, grp, rol, valores)
-        
-        valores = valores_raw.split(',') if ',' in valores_raw else [valores_raw]
-        
-        return (True, tipo, dev, grp, rol, valores)
-    
+            r.valid = True
+            return r
+
+        r.valores = valores_raw.split(',') if ',' in valores_raw else [valores_raw]
+        r.valid = True
+        return r
+
     def parse_payload(self, payload):
-        """Retorna (tipo, [args])"""
         if not payload:
             return (None, [])
         partes = str(payload).split(':')
         return (partes[0], partes[1:] if len(partes) > 1 else [])
-    
+
     def is_for_me(self, message):
         """Verifica si mensaje es para este device_id"""
         if not self.device_id or not message:
             return False
         tipo, args = self.parse_payload(message)
         return args and len(args) > 0 and args[0] == self.device_id
-    
+
     def extract_device_id(self, message):
         """Extrae device_id del mensaje"""
         tipo, args = self.parse_payload(message)
         return args[0] if args else None
-    
+
     def extract_qparams(self, message):
         """Extrae (tipo_pregunta, num_opciones)"""
         tipo, args = self.parse_payload(message)
         if len(args) >= 2:
             return (args[0], int(args[1]))
         return (None, None)
-    
+
     def command(self, cmd, *args):
         """Genera comando: CMD:arg1:arg2"""
         if args:
             return "{}:{}".format(cmd, ':'.join(str(a) for a in args))
         return cmd
-    
+
     def cmd(self, name, *args, device_id=False, gr=False, packed=False):
         """
         Genera comando con opciones:
@@ -128,7 +151,7 @@ class RadioMessage:
         - packed: une args con coma
         """
         params = []
-        
+
         if device_id and self.device_id:
             params.append(self.device_id)
         if gr:
@@ -136,24 +159,22 @@ class RadioMessage:
                 params.append(self.group)
             if self.role:
                 params.append(self.role)
-        
+
         if packed:
             if len(args) == 1 and isinstance(args[0], (list, tuple)):
                 args = (','.join(str(a) for a in args[0]),)
             else:
                 args = (','.join(str(a) for a in args),)
-        
+
         params.extend(args)
         return self.command(name, *params)
-    
+
     def _to_int(self, x):
         """Convierte a int si es posible"""
         try:
             return int(x)
         except:
             return x
-    
-
 
 
 class ConfigManager:
@@ -168,18 +189,18 @@ class ConfigManager:
         }
         if extra_fields:
             self.config.update(extra_fields)
-    
+
     def load(self):
         try:
             with open(self.config_file, 'r') as f:
-                content = f.read().strip()            
+                content = f.read().strip()
             if not content:
                 return False
             for linea in content.split('\n'):
                 if '=' in linea:
                     k, v = linea.split('=', 1)
                     k = k.strip()
-                    v = v.strip()               
+                    v = v.strip()
                     if k in self.config:
                         if k == 'grupo':
                             self.config[k] = int(v)
@@ -204,27 +225,27 @@ class ConfigManager:
             return True
         except:
             return False
-    
+
     def get(self, key):
         return self.config.get(key)
-    
+
     def set(self, key, value):
         if key in self.config:
             self.config[key] = value
-    
+
     def cycle_role(self):
         idx = self.roles.index(self.config['role']) if self.config['role'] in self.roles else 0
         idx = (idx + 1) % len(self.roles)
         self.config['role'] = self.roles[idx]
         return self.config['role']
-    
+
     def cycle_grupo(self):
         g = self.config.get('grupo', self.grupos_min)
         rango = self.grupos_max - self.grupos_min + 1
         g = ((g - self.grupos_min + 1) % rango) + self.grupos_min
         self.config['grupo'] = g
         return g
-    
+
     def config_rg(self, p1, ba, bb, cb=None):
         if not p1.is_touched():
             return False
@@ -239,7 +260,7 @@ class ConfigManager:
                     cb()
                 while ba.is_pressed():
                     sleep(50)
-            
+
             if bb.was_pressed():
                 self.cycle_grupo()
                 self.save()
@@ -247,7 +268,7 @@ class ConfigManager:
                 if cb:
                     cb()
                 while bb.is_pressed():
-                    sleep(50)  
+                    sleep(50)
             sleep(50)
         display.clear()
         sleep(200)
