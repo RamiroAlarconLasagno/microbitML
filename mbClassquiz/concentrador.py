@@ -1,17 +1,18 @@
 # concentrador.py
 from microbit import *
-from microbitml import RadioMessage
+from microbitml import Radio
 
 ACTIVITY = "cqz"
 
 class Concentrador:
     def __init__(self):
-        self.msg = RadioMessage(activity=ACTIVITY, channel=7)
+        # Canal fijo 7 para la actividad classquiz
+        self.radio = Radio(activity=ACTIVITY, channel=7)
         uart.init(baudrate=115200)
         
         self.dispositivos_registrados = {}
         self.polling_activo = False
-        self.CONFIG_FILE = 'devices.cfg'
+        self.ARCHIVO_CONFIG = 'devices.cfg'
     
     def enviar_usb(self, mensaje):
         uart.write(mensaje + "\n")
@@ -24,9 +25,10 @@ class Concentrador:
         display.clear()
     
     def cargar_dispositivos(self):
+        # Recupera dispositivos registrados de sesiones anteriores
         try:
-            with open(self.CONFIG_FILE, 'r') as f:
-                self.dispositivos_registrados = eval(f.read())
+            with open(self.ARCHIVO_CONFIG, 'r') as archivo:
+                self.dispositivos_registrados = eval(archivo.read())
             self.enviar_usb('{{"type":"debug","msg":"Cargados_{}_dispositivos"}}'.format(len(self.dispositivos_registrados)))
         except:
             self.dispositivos_registrados = {}
@@ -34,38 +36,40 @@ class Concentrador:
     
     def guardar_dispositivos(self):
         try:
-            with open(self.CONFIG_FILE, 'w') as f:
-                f.write(repr(self.dispositivos_registrados))
+            with open(self.ARCHIVO_CONFIG, 'w') as archivo:
+                archivo.write(repr(self.dispositivos_registrados))
             self.enviar_usb('{"type":"debug","msg":"Guardado_OK"}')
-        except Exception as e:
-            self.enviar_usb('{{"type":"error","msg":"{}"}}'.format(str(e)))
+        except Exception as error:
+            self.enviar_usb('{{"type":"error","msg":"{}"}}'.format(str(error)))
     
     def descubrimiento(self):
+        # Fase 1: limpiar registros y pedir a todos que se identifiquen
         self.enviar_usb('{"type":"debug","msg":"=== DESCUBRIMIENTO ==="}')
         display.show(Image.HEART)
         self.dispositivos_registrados.clear()
         
         self.enviar_usb('{"type":"discovery_start"}')
-        self.msg.send(self.msg.cmd("REPORT"))
+        self.radio.send("REPORT")
         self.enviar_usb('{"type":"debug","msg":"REPORT_enviado"}')
         
+        # Fase 2: escuchar respuestas durante 10 segundos
         inicio = running_time()
         while running_time() - inicio < 10000:
-            valid, tipo, dev, grp, rol, valores = self.msg.receive('ID', unpack=True)
-            if valid and len(valores) > 0 and valores[0] == ACTIVITY:
-                self.procesar_id(dev, grp, rol)
+            mensaje = self.radio.receive('ID')
+            if mensaje.valid and len(mensaje.valores) > 0 and mensaje.valores[0] == ACTIVITY:
+                self.procesar_id(mensaje.devID, mensaje.grp, mensaje.rol)
             sleep(10)
         
-        # Enviar lista completa
-        json_list = '{"type":"device_list","devices":['
-        idx = 0
-        for (g, r), did in self.dispositivos_registrados.items():
-            json_list += '{{"activity":"{}","device_id":"{}","grupo":{},"role":"{}"}}'.format(ACTIVITY, did, g, r)
-            if idx < len(self.dispositivos_registrados) - 1:
-                json_list += ','
-            idx += 1
-        json_list += ']}'
-        self.enviar_usb(json_list)
+        # Fase 3: enviar lista completa al PC
+        lista_json = '{"type":"device_list","devices":['
+        indice = 0
+        for (grupo, rol), device_id in self.dispositivos_registrados.items():
+            lista_json += '{{"activity":"{}","device_id":"{}","grupo":{},"role":"{}"}}'.format(ACTIVITY, device_id, grupo, rol)
+            if indice < len(self.dispositivos_registrados) - 1:
+                lista_json += ','
+            indice += 1
+        lista_json += ']}'
+        self.enviar_usb(lista_json)
         
         self.guardar_dispositivos()
         self.enviar_usb('{{"type":"discovery_end","total":{}}}'.format(len(self.dispositivos_registrados)))
@@ -75,16 +79,18 @@ class Concentrador:
         display.clear()
     
     def procesar_id(self, device_id, grupo, rol):
-        key = (grupo, rol)
+        clave = (grupo, rol)
         
-        if key in self.dispositivos_registrados:
-            existing = self.dispositivos_registrados[key]
+        # Advertir si ya existe un dispositivo con ese grupo y rol
+        if clave in self.dispositivos_registrados:
+            existente = self.dispositivos_registrados[clave]
             self.enviar_usb('{{"type":"warning","msg":"CONFLICTO_G{}:{}","existing":"{}","new":"{}"}}'.format(
-                grupo, rol, existing[:8], device_id[:8]
+                grupo, rol, existente[:8], device_id[:8]
             ))
         
-        self.dispositivos_registrados[key] = device_id
-        self.msg.send(self.msg.cmd("ACK", device_id))
+        self.dispositivos_registrados[clave] = device_id
+        # Confirmar registro al dispositivo
+        self.radio.send("ACK", device_id)
         
         self.enviar_usb('{{"type":"new_device","activity":"{}","device_id":"{}","grupo":{},"role":"{}"}}'.format(
             ACTIVITY, device_id, grupo, rol
@@ -93,8 +99,9 @@ class Concentrador:
         display.scroll(len(self.dispositivos_registrados), delay=60)
     
     def broadcast_qparams(self, tipo, num_opciones):
+        # Enviar parametros de la pregunta a todos los dispositivos
         self.enviar_usb('{"type":"debug","msg":"BROADCAST_QPARAMS"}')
-        self.msg.send(self.msg.cmd("QPARAMS", tipo, num_opciones))
+        self.radio.send("QPARAMS", tipo, num_opciones)
         self.enviar_usb('{{"type":"qparams_sent","q_type":"{}","num_options":{}}}'.format(tipo, num_opciones))
         sleep(500)
         display.show(Image.ARROW_E)
@@ -102,23 +109,25 @@ class Concentrador:
         display.clear()
     
     def hacer_polling(self):
+        # Preguntar de a uno a cada dispositivo registrado su respuesta
         self.polling_activo = True
         self.enviar_usb('{"type":"debug","msg":"=== POLLING ==="}')
         display.show(Image.ASLEEP)
         
-        for idx, ((grupo, rol), device_id) in enumerate(list(self.dispositivos_registrados.items())):
-            display.show(str(idx + 1))
+        for indice, ((grupo, rol), device_id) in enumerate(list(self.dispositivos_registrados.items())):
+            display.show(str(indice + 1))
             
             respuesta = None
             intentos = 0
             
             while intentos < 2 and respuesta is None:
-                self.msg.send(self.msg.cmd("POLL", grupo, rol))
+                self.radio.send("POLL", grupo, rol)
                 
+                # Esperar respuesta en ventanas de 50ms, hasta 4 intentos
                 for _ in range(4):
-                    valid, tipo, dev, grp, rl, valores = self.msg.receive('ANSWER', unpack=True)
-                    if valid and grp == grupo and rl == rol:
-                        respuesta = valores[0] if valores else ""
+                    mensaje = self.radio.receive('ANSWER')
+                    if mensaje.valid and mensaje.grp == grupo and mensaje.rol == rol:
+                        respuesta = mensaje.valores[0] if mensaje.valores else ""
                         break
                     sleep(50)
                 
@@ -138,23 +147,24 @@ class Concentrador:
         display.clear()
     
     def verificar_estado(self):
+        # Enviar PING a cada dispositivo y esperar PONG
         self.enviar_usb('{"type":"debug","msg":"VERIFICACION"}')
         display.show(Image.GHOST)
         
         for (grupo, rol), device_id in self.dispositivos_registrados.items():
-            self.msg.send(self.msg.cmd("PING", device_id))
+            self.radio.send("PING", device_id)
             
             inicio = running_time()
-            recibio = False
+            respondio = False
             
             while running_time() - inicio < 1000:
-                valid, tipo, payload = self.msg.receive('PONG')
-                if valid and self.msg.extract_device_id(payload) == device_id:
-                    recibio = True
+                mensaje = self.radio.receive('PONG')
+                if mensaje.valid and mensaje.devID == device_id:
+                    respondio = True
                     break
                 sleep(10)
             
-            estado = "online" if recibio else "offline"
+            estado = "online" if respondio else "offline"
             self.enviar_usb('{{"type":"ping_result","device_id":"{}","grupo":{},"role":"{}","status":"{}"}}'.format(
                 device_id, grupo, rol, estado
             ))
@@ -162,6 +172,7 @@ class Concentrador:
         display.clear()
     
     def procesar_comando_usb(self, linea):
+        # Interpretar comandos que llegan desde el PC por USB
         try:
             linea = linea.strip()
             if not linea:
@@ -181,8 +192,8 @@ class Concentrador:
                 self.descubrimiento()
             elif 'ping_all' in linea:
                 self.verificar_estado()
-        except Exception as e:
-            self.enviar_usb('{{"type":"error","msg":"{}"}}'.format(str(e)))
+        except Exception as error:
+            self.enviar_usb('{{"type":"error","msg":"{}"}}'.format(str(error)))
     
     def leer_usb(self):
         if uart.any():
@@ -203,38 +214,33 @@ class Concentrador:
                 self.verificar_estado()
 
     def manejar_mensajes_radio(self):
-        """Escucha mensajes de radio (CHECK_REG principalmente)"""
-        valid, tipo, payload = self.msg.receive()
+        # Escucha CHECK_REG: dispositivos que verifican si siguen registrados
+        mensaje = self.radio.receive()
         
-        if not valid or not tipo:
+        if not mensaje.valid or not mensaje.name:
             return
         
-        if tipo == 'CHECK_REG':
-            # Parsear manualmente: CHECK_REG:device_id:grupo:rol
-            _, args = self.msg.parse_payload(payload)
-            
-            if len(args) < 3:
+        if mensaje.name == 'CHECK_REG':
+            if not mensaje.devID or mensaje.grp is None or not mensaje.rol:
                 self.enviar_usb('{"type":"warning","msg":"CHECK_REG_malformado"}')
                 return
             
-            dev = args[0]
-            grp = self.msg._to_int(args[1])
-            rol = args[2]
-            
             self.enviar_usb('{{"type":"debug","msg":"CHECK_REG:{}:G{}:{}"}}'.format(
-                dev[:8], grp, rol
+                mensaje.devID[:8], mensaje.grp, mensaje.rol
             ))
             
-            if (grp, rol) in self.dispositivos_registrados:
-                stored_id = self.dispositivos_registrados[(grp, rol)]
-                if stored_id == dev:
-                    self.msg.send(self.msg.cmd("REG_STATUS", dev, "OK"))
+            clave = (mensaje.grp, mensaje.rol)
+            if clave in self.dispositivos_registrados:
+                almacenado = self.dispositivos_registrados[clave]
+                if almacenado == mensaje.devID:
+                    self.radio.send("REG_STATUS", mensaje.devID, "OK")
                     self.enviar_usb('{"type":"debug","msg":"REG_STATUS_OK"}')
                 else:
-                    self.msg.send(self.msg.cmd("REG_STATUS", dev, "CONFLICT"))
+                    # El slot esta ocupado por otro device_id
+                    self.radio.send("REG_STATUS", mensaje.devID, "CONFLICT")
                     self.enviar_usb('{"type":"debug","msg":"REG_STATUS_CONFLICT"}')
             else:
-                self.msg.send(self.msg.cmd("REG_STATUS", dev, "NO"))
+                self.radio.send("REG_STATUS", mensaje.devID, "NO")
                 self.enviar_usb('{"type":"debug","msg":"REG_STATUS_NO"}')
     
     def run(self):

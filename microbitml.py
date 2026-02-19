@@ -51,7 +51,7 @@ class Radio:
     # Envia mensaje por radio
     def send(self, name, *args, device_id=False, gr=False, packed=False, CMD=True):
         if CMD:
-            s = '_DGR' if device_id and gr else '_D' if device_id else '_GR' if gr else ''
+            s = '_DGR' if device_id and gr else '_D' if device_id else '_GR' if gr else '_N'
             payload = self.cmd(name + s, *args, device_id=device_id, gr=gr, packed=packed)
         else:
             payload = name
@@ -62,6 +62,7 @@ class Radio:
         if not raw:
             return None
         msg_str = str(raw)
+        print("RAW:{}".format(msg_str))
         tipo = msg_str.split(':')[0] if ':' in msg_str else msg_str
         return {'t': tipo, 'd': msg_str}
 
@@ -75,7 +76,7 @@ class Radio:
         tipo, args = self._parse(m['d'])
         if not tipo:
             return r
-        sufijo = '_DGR' if tipo.endswith('_DGR') else '_GR' if tipo.endswith('_GR') else '_D' if tipo.endswith('_D') else ''
+        sufijo = '_DGR' if tipo.endswith('_DGR') else '_GR' if tipo.endswith('_GR') else '_D' if tipo.endswith('_D') else '_N' if tipo.endswith('_N') else ''
         r.name = tipo[:-len(sufijo)] if sufijo else tipo
         expected_types = [filter] if isinstance(filter, str) else filter
         if expected_types and r.name not in expected_types:
@@ -91,7 +92,7 @@ class Radio:
             r.devID = args[0]
             vr = args[1] if len(args) >= 2 else None
         elif len(args) >= 1:
-            vr = args[0]
+            vr = ','.join(str(a) for a in args)
         if vr is not None:
             r.valores = vr.split(',') if ',' in vr else [vr]
         r.valid = True
