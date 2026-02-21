@@ -36,6 +36,7 @@ class Radio:
         self.group = None
         self.role = None
         self.channel = channel
+        self.radio = radio
         self._resultado = Message()
         radio.on()
         radio.config(channel=channel, power=6, length=64, queue=10)
