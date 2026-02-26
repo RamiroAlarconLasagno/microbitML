@@ -55,8 +55,8 @@ class Concentrador:
         # Fase 2: escuchar respuestas durante 10 segundos
         inicio = running_time()
         while running_time() - inicio < 10000:
-            mensaje = self.radio.receive('ID')
-            if mensaje.valid and len(mensaje.valores) > 0 and mensaje.valores[0] == ACTIVITY:
+            mensaje = self.radio.receive('ID', full=True)
+            if mensaje.valid:
                 self.procesar_id(mensaje.devID, mensaje.grp, mensaje.rol)
             sleep(10)
         
@@ -125,7 +125,7 @@ class Concentrador:
                 
                 # Esperar respuesta en ventanas de 50ms, hasta 4 intentos
                 for _ in range(4):
-                    mensaje = self.radio.receive('ANSWER')
+                    mensaje = self.radio.receive('ANSWER', full=True)
                     if mensaje.valid and mensaje.grp == grupo and mensaje.rol == rol:
                         respuesta = mensaje.valores[0] if mensaje.valores else ""
                         break
@@ -158,7 +158,7 @@ class Concentrador:
             respondio = False
             
             while running_time() - inicio < 1000:
-                mensaje = self.radio.receive('PONG')
+                mensaje = self.radio.receive('PONG', full=True)
                 if mensaje.valid and mensaje.devID == device_id:
                     respondio = True
                     break
@@ -215,7 +215,7 @@ class Concentrador:
 
     def manejar_mensajes_radio(self):
         # Escucha CHECK_REG: dispositivos que verifican si siguen registrados
-        mensaje = self.radio.receive()
+        mensaje = self.radio.receive(full=True)
         
         if not mensaje.valid or not mensaje.name:
             return

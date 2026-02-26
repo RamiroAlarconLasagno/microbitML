@@ -13,6 +13,7 @@ import machine
 class Message:
     def __init__(self):
         self.valid = False
+        self.act = None
         self.name = None
         self.devID = None
         self.grp = None
@@ -21,6 +22,7 @@ class Message:
 
     def _reset(self):
         self.valid = False
+        self.act = None
         self.name = None
         self.devID = None
         self.grp = None
@@ -31,7 +33,7 @@ class Message:
 # Manejo de comunicacion radio
 class Radio:
     def __init__(self, activity='mbtml', channel=0):
-        self.activity = activity
+        self.activity = activity[:5]
         self.device_id = ''.join(['{:02x}'.format(b) for b in machine.unique_id()])
         self.group = None
         self.role = None
@@ -53,7 +55,7 @@ class Radio:
     def send(self, name, *args, device_id=False, packed=False, CMD=True):
         if CMD:
             s = '_DGR' if device_id else '_GR'
-            payload = self.cmd(name + s, *args, device_id=device_id, gr=True, packed=packed)
+            payload = self.activity + ':' + self.cmd(name + s, *args, device_id=device_id, gr=True, packed=packed)
         else:
             payload = name
         radio.send(str(payload))
@@ -68,15 +70,21 @@ class Radio:
         return {'t': tipo, 'd': msg_str}
 
     # Recibe un mensaje, retorna Message
+    # full=True: acepta mensajes de cualquier grupo (para concentrador)
     def receive(self, filter=None, full=False):
         r = self._resultado
         r._reset()
         m = self._read()
         if not m:
             return r
-        tipo, args = self._parse(m['d'])
-        if not tipo:
+        all_parts, args = self._parse(m['d'])
+        if not all_parts or len(args) < 1:
             return r
+        r.act = all_parts
+        if r.act != self.activity:
+            return r
+        tipo = args[0]
+        args = args[1:]
         sufijos = ('_DGR', '_GR')
         sufijo = next((s for s in sufijos if tipo.endswith(s)), '')
         r.name = tipo[:-len(sufijo)] if sufijo else tipo

@@ -11,7 +11,7 @@ SUMA_MAX = 22
 class PerceptronApp:
     def __init__(self):
         # Roles: Z es el axon (suma), A y B son las entradas (dendritas)
-        self.config = ConfigManager(roles=['Z','A','B'], grupos_max=9, grupos_min=0, extra_fields={'valor':0})
+        self.config = ConfigManager(roles=['Z','A','B'], grupos_max=9, grupos_min=1, extra_fields={'valor':0})
         
         cargado = self.config.load()
         print("Config_cargada:{}".format(cargado))
@@ -62,7 +62,7 @@ class PerceptronApp:
         self.mostrar_leds(valor_ponderado)
         
         # Enviar valor al rol Z del mismo grupo
-        self.radio.send("VALUE", valor_ponderado, gr=True)
+        self.radio.send("VALUE", valor_ponderado)
         print("TX:{}:valor={},peso={},ponderado={}".format(self.config.get('role'), valor, peso, valor_ponderado))
 
     def rol_a(self):

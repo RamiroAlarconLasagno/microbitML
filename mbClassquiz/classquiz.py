@@ -66,7 +66,7 @@ class ClassQuiz:
         self.log("Delay:{}ms".format(delay))
         sleep(delay)
         # Responder con ID, actividad, grupo y rol
-        self.radio.send("ID", ACTIVITY, device_id=True, gr=True)
+        self.radio.send("ID", device_id=True)
         self.log("TX:ID")
     
     def procesar_ack(self, mensaje):
@@ -105,7 +105,7 @@ class ClassQuiz:
         letras = ['A', 'B', 'C', 'D']
         respuestas = [letras[i] for i in range(len(self.seleccionadas)) if self.seleccionadas[i]]
         # packed=True agrupa todas las respuestas en un solo campo separado por coma
-        self.radio.send("ANSWER", respuestas, device_id=True, gr=True, packed=True)
+        self.radio.send("ANSWER", respuestas, device_id=True, packed=True)
         self.log("TX:ANSWER:{}".format(','.join(respuestas)))
         display.show(Image.ARROW_W)
         sleep(200)
@@ -211,14 +211,14 @@ class ClassQuiz:
     def run(self):
         self.config.save()
         # Al iniciar verificar si el concentrador nos recuerda de una sesion anterior
-        self.radio.send("CHECK_REG", device_id=True, gr=True)
+        self.radio.send("CHECK_REG", device_id=True)
         self.log("CHECK_REG_enviado")
         ultimo_check = running_time()
         
         while True:
             # Reintentar CHECK_REG cada 5 segundos solo si aun no estamos registrados
             if not self.registrado and running_time() - ultimo_check > 5000:
-                self.radio.send("CHECK_REG", device_id=True, gr=True)
+                self.radio.send("CHECK_REG", device_id=True)
                 ultimo_check = running_time()
                 self.log("CHECK_REG_reintento")
             
