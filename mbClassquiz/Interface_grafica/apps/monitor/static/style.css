@@ -1,0 +1,10 @@
+/* apps/monitor/static/style.css */
+body { font-family: monospace; background: #1e1e1e; color: #d4d4d4; padding: 16px; }
+h1   { font-size: 1.2rem; margin-bottom: 12px; }
+#controles { margin-bottom: 10px; }
+button { background: #333; color: #d4d4d4; border: 1px solid #555;
+         padding: 4px 10px; cursor: pointer; margin-right: 8px; }
+#lista { height: calc(100vh - 120px); overflow-y: auto; }
+.mensaje { padding: 3px 0; border-bottom: 1px solid #2d2d2d; font-size: 0.85rem; }
+.ts   { color: #569cd6; margin-right: 10px; }
+.json { color: #9cdcfe; }

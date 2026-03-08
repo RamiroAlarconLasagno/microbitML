@@ -1,0 +1,35 @@
+<!-- apps/monitor/templates/monitor/index.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Monitor USB</title>
+    <link rel="stylesheet" href="/monitor/static/style.css">
+</head>
+<body>
+    <h1>🔍 Monitor USB</h1>
+    <div id="controles">
+        <button onclick="limpiar()">🗑 Limpiar</button>
+        <label><input type="checkbox" id="autoscroll" checked> Auto-scroll</label>
+    </div>
+    <div id="lista"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.min.js"></script>
+    <script>
+        const socket = io();
+        const lista  = document.getElementById('lista');
+
+        socket.on('usb_message', data => {
+            const div = document.createElement('div');
+            div.className = 'mensaje';
+            div.innerHTML = `<span class="ts">${data.timestamp}</span>
+                             <span class="json">${JSON.stringify(data.msg)}</span>`;
+            lista.appendChild(div);
+            if (document.getElementById('autoscroll').checked)
+                lista.scrollTop = lista.scrollHeight;
+        });
+
+        function limpiar() { lista.innerHTML = ''; }
+    </script>
+</body>
+</html>
