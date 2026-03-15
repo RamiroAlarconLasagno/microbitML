@@ -1,5 +1,5 @@
 #
-# microbit-module: microbitml@3.0.0
+# microbit-module: microbitml@1.0.0
 #
 # ---
 # microbitml.py
@@ -35,8 +35,8 @@ class Radio:
     def __init__(self, activity='mbtml', channel=0):
         self.activity = activity[:5]
         self.device_id = ''.join(['{:02x}'.format(b) for b in machine.unique_id()])
-        self.group = 0
-        self.role = 'Z'
+        self.group = None
+        self.role = None
         self.channel = channel
         self.radio = radio
         self._resultado = Message()
