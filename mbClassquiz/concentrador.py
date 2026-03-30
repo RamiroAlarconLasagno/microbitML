@@ -2,8 +2,8 @@
 from microbit import *
 from microbitml import Radio
 
-ACTIVITY = "cqz"
-CHANNEL  = 7
+ACTIVITY = "con"
+CHANNEL  = 0
 
 class Concentrador:
     def __init__(self):

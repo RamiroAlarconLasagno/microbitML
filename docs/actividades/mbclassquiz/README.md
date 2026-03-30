@@ -21,8 +21,8 @@ Se necesita **1 concentrador** (conectado por USB a la PC del docente) y **1 mic
 
 | Rol | Función |
 |-----|---------|
-| A, B, C, D, E | Dispositivo de alumno — navega y envía respuestas por radio |
-| Z | Reservado (no usar para alumnos) |
+| A, B, C, D, E, Z | Dispositivo de alumno — navega y envía respuestas por radio |
+
 
 El concentrador ejecuta un programa diferente (`concentrador.py`). Los alumnos ejecutan todos el mismo programa (`classquiz.py`).
 
@@ -95,7 +95,7 @@ Los roles y el canal de radio están definidos dentro de la clase:
 
 ```python
 roles=['A', 'B', 'C', 'D', 'E', 'Z']   # Roles disponibles
-channel=7                                  # Canal de radio
+channel=0                                  # Canal de radio
 ```
 
 ---

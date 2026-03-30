@@ -18,7 +18,7 @@ Los micro:bits se comunican por radio y se agrupan en equipos. Dentro de cada eq
 | [mbClassquiz](actividades/mbclassquiz/README.md) | Integración con la plataforma ClassQuiz para quizzes interactivos | 1 concentrador + N alumnos |
 | [mbContador](actividades/mbcontador/README.md) | Contador distribuido en base N — práctica de sistemas de numeración | 2 a 26 (uno por dígito) |
 | [mbPerceptron](actividades/mbperceptron/README.md) | Perceptrón distribuido — introducción a Machine Learning | 3 (roles A, B, Z) |
-| [mbSnake](actividades/mbsnake/README.md) | Juego de la viborita en la matriz de LEDs 5×5 | 1 |
+| [mbSnake](actividades/mbsnake/README.md) | Juego de la viborita en la matriz de LEDs 5×5 | 2 |
 
 ---
 

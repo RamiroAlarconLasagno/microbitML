@@ -31,7 +31,7 @@ Todos los mensajes tienen la misma estructura: un nombre seguido de datos opcion
 | Campo     | Tipo    | Descripción                                                  |
 |-----------|---------|--------------------------------------------------------------|
 | `valid`   | bool    | `True` si el mensaje es válido para este dispositivo         |
-| `act`     | str     | Actividad del mensaje recibido (prefijo antes de `:`)        |
+| `act`     | str     | Actividad del mensaje recibido (hasta 5 caracteres) (prefijo antes de `:`)        |
 | `name`    | str     | Nombre del comando (sin sufijos `_GR`/`_DGR`)               |
 | `devID`   | str     | ID del dispositivo emisor (si usó `device_id=True`)          |
 | `grp`     | int     | Grupo del emisor                                             |
@@ -253,7 +253,7 @@ La instancia de Radio expone el módulo radio de MicroPython directamente a trav
 from microbitml import Radio
 
 r = Radio(activity='pct')
-r.radio.config(channel=7, power=6)
+r.radio.config(channel=0, power=6)
 ```
 
 !!! tip
@@ -445,7 +445,7 @@ from microbitml import Radio, ConfigManager
 config = ConfigManager(roles=['A','B'], grupos_max=4, grupos_min=1)
 config.load()  # recuperar datos previos
 
-radio = Radio(activity='mi_app', channel=7)
+radio = Radio(activity='mi_app', channel=0)
 radio.configure(
     group=config.get('grupo'),
     role=config.get('role')
