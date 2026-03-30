@@ -23,7 +23,7 @@ Count on input nodes are updated by pressing buttons A and B. Here's a detail on
 ![](README.d/z_binary_output.png)
 
 
-## Usage:  proof-of-concept 
+## Usage:  proof-of-concept  
 
 1. Download the same .hex file to every Microbit in class (teaching node is not implemented yet)
 2. Separate the class in groups of three MB's. Maybe groups of six~ten students, sharing 3 MB, is fine.
