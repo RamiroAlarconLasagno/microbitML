@@ -17,7 +17,7 @@ DOCENTE (ClassQuiz web)
 INTERFAZ GRÁFICA (PC, Python/Flask)
     ↕ USB Serial (115200 baud)
 CONCENTRADOR (micro:bit V2)
-    ↕ Radio 2.4GHz (canal 7)
+    ↕ Radio 2.4GHz (canal 0)
 ALUMNOS (micro:bits V2, hasta ~30)
 ```
 
@@ -25,7 +25,7 @@ ALUMNOS (micro:bits V2, hasta ~30)
 
 ## Firmware alumno — classquiz.py
 
-Actividad: `cqz` | Canal: 7 | Roles: A, B, C, D, E, Z
+Actividad: `cqz` | Canal: 0 | Roles: A, B, C, D, E, Z
 
 ### Protocolo de mensajes
 
@@ -59,21 +59,34 @@ delay = int((slot * 5750) / 53)  # ms
 
 ## Firmware concentrador — concentrador.py
 
-Actividad: `cqz` | Canal: 7 | UART: 115200 baud
+Actividad: `con` | Canal: 0 | UART: 115200 baud | Grupo: 0 | Rol: A
 
-Gateway puro sin lógica de negocio. Traduce entre radio y USB serial.
+Gateway genérico sin lógica de negocio. Traduce entre radio y USB serial. Al operar en grupo 0 y rol A, el concentrador acepta mensajes de **cualquier actividad y cualquier grupo** (bypass de filtros de microbitml).
 
 ### Radio → USB
 
-Recibe un objeto `Message` por radio y lo serializa a JSON mínimo:
+Recibe un objeto `Message` por radio y lo serializa a JSON mínimo. Incluye el campo `act` con la actividad de origen del mensaje:
 
 ```json
-{"name":"ID","devID":"a1b2c3d4","grp":3,"rol":"A","valores":["cqz"]}
+{"name":"ID","act":"cqz","devID":"a1b2c3d4","grp":3,"rol":"A","valores":["cqz"]}
 ```
 
 ### USB → Radio
 
-Lee JSON de la PC, extrae campos y construye el payload radio con `send(CMD=False)`.
+Lee JSON de la PC, extrae campos y construye el payload radio con `send(CMD=False)`. Usa el campo `act` del JSON recibido como prefijo de actividad en el payload radio. Si no viene `act`, usa la actividad propia del concentrador (`con`) como fallback.
+
+```json
+{"name":"REG_STATUS","act":"cqz","devID":"a1b2c3d4","grp":3,"rol":"C","valores":["OK"]}
+```
+
+Se convierte en el payload radio:
+
+```
+cqz:REG_STATUS_DGR:a1b2c3d4:3:C:OK
+```
+
+!!! warning
+    La interfaz gráfica (PC) **debe incluir el campo `act`** en todos los mensajes JSON que envía por serial al concentrador. Sin este campo, el concentrador reenvía con su propia actividad (`con`) y los dispositivos destino lo descartan por no coincidir con su actividad.
 
 ### Eventos de botones
 
@@ -108,15 +121,29 @@ Python 3.12+ | Flask + Tkinter | localhost:5000
 | `apps/classquiz/socketio_manager.py` | Clientes Socket.IO hacia ClassQuiz |
 | `apps/monitor/app.py` | Monitor USB raw |
 
+### Campo `act` en mensajes serial
+
+Todos los mensajes que la interfaz gráfica envía por serial al concentrador deben incluir el campo `act` con la actividad destino. Esto permite que el concentrador sea genérico y reenvíe por radio con la actividad correcta:
+
+```python
+# Ejemplo: enviar REPORT con actividad cqz
+serial_manager.enviar({
+    'name': 'REPORT', 'act': 'cqz',
+    'grp': 0, 'rol': 'est', 'valores': []
+})
+```
+
+En `app.py` y `socketio_manager.py` la actividad se define como constante `ACTIVITY = 'cqz'` y se incluye en todos los `serial_manager.enviar()`.
+
 ### Flujo de una pregunta
 
 1. ClassQuiz emite `set_question_number` vía Socket.IO
-2. La interfaz envía `QPARAMS` por serial al concentrador
-3. El concentrador hace broadcast radio a todos los alumnos
+2. La interfaz envía `QPARAMS` (con `act: cqz`) por serial al concentrador
+3. El concentrador hace broadcast radio a todos los alumnos con prefijo `cqz`
 4. Los alumnos seleccionan opciones con los botones
-5. La interfaz inicia polling secuencial: `POLL` a cada device_id registrado
+5. La interfaz inicia polling secuencial: `POLL` (con `act: cqz`) a cada device_id registrado
 6. Cada alumno responde `ANSWER` con sus opciones
-7. El concentrador reenvía por USB
+7. El concentrador reenvía por USB (JSON con `act` del mensaje original)
 8. La interfaz mapea device_id → username y envía a ClassQuiz vía Socket.IO
 
 ### Dependencias

@@ -261,6 +261,29 @@ r.radio.config(channel=0, power=6)
 
 ---
 
+### Caso 10 — Bypass de filtro de actividad (concentrador genérico)
+
+Por defecto, `receive()` descarta mensajes cuya actividad no coincida con la del receptor. Sin embargo, si el dispositivo está configurado en **grupo 0 y rol A**, el filtro de actividad se desactiva. Esto permite construir un concentrador genérico que reciba mensajes de cualquier actividad.
+
+**RECEPTOR — receive()**
+```python
+# Concentrador genérico: grupo 0, rol A
+radio = Radio(activity='con', channel=0)
+# No llamar configure() — grupo 0 y rol A son los defaults
+
+msg = radio.receive(full=True)
+if msg.valid:
+    print(msg.act)   # actividad del emisor (ej: 'cqz', 'cnt', 'pct')
+    print(msg.name)  # nombre del comando
+    print(msg.grp)   # grupo del emisor
+```
+
+!!! tip
+    Combinar con `full=True` para aceptar también mensajes de cualquier grupo. El campo `msg.act` permite saber de qué actividad proviene el mensaje recibido.
+
+!!! warning
+    Este bypass solo se activa cuando `group == '0'` y `role == 'A'` (los valores por defecto de Radio). Si se llama a `configure()` con otro grupo o rol, el filtro de actividad vuelve a estar activo.
+
 ### Protocolo de radio (wire format)
 
 Cuando se usa `send()` con `CMD=True` (default), el mensaje que viaja por radio tiene este formato:
